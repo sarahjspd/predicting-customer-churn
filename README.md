@@ -196,30 +196,45 @@ The six input features were separated into numerical and categorical groups for 
 
 ### 8.2 Missing Value Handling
 
-Although the original dataset contains no missing values, imputation strategies were included to improve the pipeline's robustness when handling future datasets.
+Although the original dataset contains no missing values, imputation strategies were incorporated to improve the pipeline's robustness when handling future datasets.
 
-- **Numerical features:** Median imputation.
-- **Categorical features:** Most-frequent value imputation.
+- **Numerical features:** Median imputation by default, with mean imputation available as an alternative.
+- **Categorical features:** Most-frequent value imputation by default, with alternative imputation strategies configurable.
 
-Median imputation was selected for numerical features because it is less sensitive to extreme values than mean imputation.
+Missing feature values are handled through the imputation pipeline. However, feature columns containing only missing values are rejected during input validation because no meaningful imputation value can be learned.
+
+Missing values in the target variable are also rejected, as target labels cannot be meaningfully imputed in supervised learning.
+
+The input validation layer additionally checks for missing required columns, invalid data types and unexpected target labels.
 
 ### 8.3 Outlier Handling
 
-Potential outliers were identified during EDA across several numerical features, including monthly spending, store visits, number of complaints, and discount usage rate.
+Potential outliers were identified during EDA across several numerical features, including monthly spending, store visits, number of complaints and discount usage rate.
 
-The original observations are retained without capping or removal because their legitimacy cannot be verified using the available dataset. These values may represent genuine customer behaviour, and modifying them without sufficient evidence could result in the loss of useful information.
+The original observations are retained by default because their legitimacy cannot be verified using the available dataset.
 
-The decision to retain these observations will be revisited during model experimentation, where their potential impact on model performance can be evaluated.
+A configurable `OutlierHandler` was implemented to support two treatment options:
+
+- **None:** Retain original values without outlier treatment. This is the default setting.
+- **IQR clipping:** Cap values outside the lower and upper boundaries calculated using the interquartile range (IQR).
+
+The IQR multiplier is configurable, with a default value of 1.5.
+
+When clipping is enabled, the outlier boundaries are learned using the training data only and subsequently applied to both training and testing data. This prevents information from the testing dataset from influencing the outlier treatment process.
+
+Clipping changes extreme feature values without removing customer records. Its impact can be evaluated during subsequent model experimentation.
 
 ### 8.4 Numerical Feature Scaling
 
-StandardScaler is incorporated into the numerical preprocessing pipeline to standardise numerical features.
+The numerical preprocessing pipeline supports configurable scaling methods:
 
-Standardisation transforms numerical features to have a mean of approximately zero and a standard deviation of approximately one, based on the training data used to fit the scaler.
+- **StandardScaler:** Standardises numerical features to have a mean of approximately zero and a standard deviation of approximately one.
+- **MinMaxScaler:** Scales numerical features to a specified range, using the default range of zero to one.
+- **None:** Allows numerical features to pass through without scaling.
 
-This helps ensure that features with larger numerical ranges do not disproportionately influence scale-sensitive machine learning algorithms.
+StandardScaler is used by default.
 
-The transformations are fitted on the training dataset and subsequently applied to the testing dataset.
+Scaling parameters are learned from the training data and subsequently applied to the testing data, preventing data leakage.
 
 ### 8.5 Categorical Feature Encoding
 
@@ -231,11 +246,16 @@ The encoder is configured to handle previously unseen categories during transfor
 
 ### 8.6 Train-Test Split
 
-The dataset is split into training and testing sets using an 80:20 ratio.
+The dataset is split into training and testing sets using an 80:20 ratio by default.
+
+The `prepare_data()` function supports configurable parameters:
+
+- `test_size`: Controls the proportion of data allocated to the testing set. Default: 0.2.
+- `random_state`: Controls the random seed for reproducibility. Default: 42.
 
 Stratified sampling is applied based on the target variable to preserve the original churn distribution across both datasets.
 
-A fixed random state is used to ensure reproducibility.
+These parameters allow alternative splitting configurations to be evaluated without modifying the underlying function.
 
 ### 8.7 Modular Pipeline Architecture
 
@@ -243,7 +263,17 @@ The preprocessing operations are organised using Scikit-learn's Pipeline and Col
 
 Separate transformation pipelines are defined for numerical and categorical features before being combined into a single preprocessing object.
 
-This modular structure improves code reusability and consistency, allowing the same preprocessing transformations to be applied to training, testing and future datasets.
+A reusable `build_preprocessor()` function allows key preprocessing settings to be configured through parameters, including:
+
+- Numerical imputation strategy.
+- Categorical imputation strategy.
+- Scaling method.
+- Outlier treatment method.
+- IQR multiplier.
+
+The default configuration preserves the original preprocessing behaviour, while alternative configurations can be constructed for subsequent experimentation.
+
+This modular architecture improves code reusability, consistency and flexibility when evaluating different preprocessing approaches.
 
 ### 8.8 Data Leakage Prevention
 
@@ -265,6 +295,41 @@ The following checks were performed:
 - **Encoding validation:** No invalid encoded rows were identified in either the training or testing dataset. Each customer was assigned exactly one membership category.
 
 All validation checks completed successfully, confirming that the preprocessing pipeline operates as intended on the current dataset.
+
+### 8.10 Input Validation and Robustness Testing
+
+An input validation layer was implemented to check incoming datasets before preprocessing.
+
+The validation checks include:
+
+- Input must be a Pandas DataFrame.
+- All required feature and target columns must be present.
+- Numerical features must contain numeric data types.
+- Categorical features must contain text or categorical data types.
+- Feature columns must not be entirely empty.
+- Target values must not contain missing values.
+- Target labels must belong to the expected categories.
+
+Additional robustness checks were incorporated into `main.py` to verify the pipeline's behaviour under different input conditions.
+
+The following scenarios were tested:
+
+| Test Scenario | Expected Behaviour | Result |
+|---|---|---|
+| Missing numerical and categorical feature values | Imputation | Passed |
+| Entirely empty feature column | Reject input | Passed |
+| Missing target values | Reject input | Passed |
+| Unexpected target labels | Reject input | Passed |
+| Missing required columns | Reject input | Passed |
+| Previously unseen membership category | Handle without error | Passed |
+| Incorrect numerical feature data type | Reject input | Passed |
+| Non-DataFrame input | Reject input | Passed |
+
+The tests confirmed that missing feature values can be imputed, invalid inputs are rejected with appropriate errors, and previously unseen membership categories can be handled during transformation.
+
+For this assessment, the robustness checks are maintained within the existing `main.py` file to preserve the required project structure.
+
+In a larger production project, these automated tests would ideally be organised in a dedicated `tests/` directory and executed through a formal testing framework such as pytest.
 
 ## 9. Tools and Libraries
 
