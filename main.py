@@ -2,10 +2,7 @@ import pandas as pd
 import numpy as np
 from src.preprocessing import (
     prepare_data,
-    preprocessor,
-    validate_input,
-    build_preprocessor,
-    TARGET
+    preprocessor
 )
 
 # Load dataset
@@ -80,105 +77,3 @@ print(
     (X_test_processed[:, 5:].sum(axis=1) != 1).sum()
 )
 
-
-# ==========================================
-# Additional Robustness Tests
-# ==========================================
-
-print("\nAdditional Robustness Tests:")
-
-# 1. Test missing feature value imputation
-df_missing = df.copy()
-df_missing.loc[0, "monthly_spend"] = np.nan
-df_missing.loc[1, "membership_tier"] = np.nan
-
-X_missing = df_missing.drop(columns=[TARGET])
-test_preprocessor = build_preprocessor()
-
-X_missing_processed = test_preprocessor.fit_transform(X_missing)
-
-assert not np.isnan(X_missing_processed).any()
-print("PASSED: Missing feature values are imputed.")
-
-# 2. Test rejection of an entirely empty feature column
-df_empty = df.copy()
-df_empty["monthly_spend"] = np.nan
-
-try:
-    validate_input(df_empty)
-    raise AssertionError("Expected ValueError was not raised.")
-except ValueError as error:
-    if "only missing values" in str(error):
-        print("PASSED: Entirely empty feature column rejected.")
-    else:
-        raise
-
-# 3. Test rejection of missing target values
-df_missing_target = df.copy()
-df_missing_target.loc[0, TARGET] = np.nan
-
-try:
-    validate_input(df_missing_target)
-    raise AssertionError("Expected ValueError was not raised.")
-except ValueError as error:
-    if "Target variable contains missing values" in str(error):
-        print("PASSED: Missing target values rejected.")
-    else:
-        raise
-
-# 4. Test rejection of unexpected target labels
-df_invalid_target = df.copy()
-df_invalid_target.loc[0, TARGET] = "Unknown"
-
-try:
-    validate_input(df_invalid_target)
-    raise AssertionError("Expected ValueError was not raised.")
-except ValueError as error:
-    if "unexpected labels" in str(error):
-        print("PASSED: Unexpected target labels rejected.")
-    else:
-        raise
-
-# 5. Test rejection of missing required columns
-df_missing_column = df.drop(columns=["membership_tier"])
-
-try:
-    validate_input(df_missing_column)
-    raise AssertionError("Expected ValueError was not raised.")
-except ValueError as error:
-    if "missing required columns" in str(error):
-        print("PASSED: Missing required columns rejected.")
-    else:
-        raise
-
-# 6. Test handling of unseen membership categories
-X_unseen = X_test.copy()
-X_unseen.loc[X_unseen.index[0], "membership_tier"] = "Platinum"
-
-X_unseen_processed = preprocessor.transform(X_unseen)
-
-assert X_unseen_processed.shape[1] == 8
-assert np.all(X_unseen_processed[0, 5:] == 0)
-
-print("PASSED: Unseen membership categories handled.")
-
-# 7. Test rejection of incorrect numerical data types
-df_invalid_type = df.copy()
-df_invalid_type["monthly_spend"] = "invalid"
-
-try:
-    validate_input(df_invalid_type)
-    raise AssertionError("Expected TypeError was not raised.")
-except TypeError:
-    print("PASSED: Incorrect numerical data types rejected.")
-
-# 8. Test rejection of non-DataFrame inputs
-try:
-    validate_input([])
-    raise AssertionError("Expected TypeError was not raised.")
-except TypeError:
-    print("PASSED: Non-DataFrame inputs rejected.")
-
-
-
-print("\nAll additional robustness tests completed.")

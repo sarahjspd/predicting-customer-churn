@@ -296,40 +296,63 @@ The following checks were performed:
 
 All validation checks completed successfully, confirming that the preprocessing pipeline operates as intended on the current dataset.
 
-### 8.10 Input Validation and Robustness Testing
+### 8.10 Input Validation and Automated Testing
 
-An input validation layer was implemented to check incoming datasets before preprocessing.
+Dedicated automated tests were implemented using pytest to validate the preprocessing and feature engineering modules.
 
-The validation checks include:
+The tests are organised in a separate `tests/` directory:
 
-- Input must be a Pandas DataFrame.
-- All required feature and target columns must be present.
-- Numerical features must contain numeric data types.
-- Categorical features must contain text or categorical data types.
-- Feature columns must not be entirely empty.
-- Target values must not contain missing values.
-- Target labels must belong to the expected categories.
+- `test_preprocessing.py`: Tests input validation, data splitting, reproducibility, preprocessing transformations and outlier handling.
+- `test_feature_engineering.py`: Tests feature input validation, engineered feature calculations, preservation of original data and Mutual Information feature ranking.
 
-Additional robustness checks were incorporated into `main.py` to verify the pipeline's behaviour under different input conditions.
+The automated tests cover:
 
-The following scenarios were tested:
+- Input validation and rejection of invalid data.
+- Correct training and testing dataset dimensions.
+- Preservation of target class distribution through stratified splitting.
+- Reproducibility using fixed random seeds.
+- Correct numerical scaling and categorical encoding.
+- Correct calculations of engineered features.
+- Mutual Information ranking and reproducibility.
+- Rejection of entirely empty feature columns.
+- Handling of missing feature values through imputation and previously unseen membership categories.
 
-| Test Scenario | Expected Behaviour | Result |
-|---|---|---|
-| Missing numerical and categorical feature values | Imputation | Passed |
-| Entirely empty feature column | Reject input | Passed |
-| Missing target values | Reject input | Passed |
-| Unexpected target labels | Reject input | Passed |
-| Missing required columns | Reject input | Passed |
-| Previously unseen membership category | Handle without error | Passed |
-| Incorrect numerical feature data type | Reject input | Passed |
-| Non-DataFrame input | Reject input | Passed |
+**Test execution:**
 
-The tests confirmed that missing feature values can be imputed, invalid inputs are rejected with appropriate errors, and previously unseen membership categories can be handled during transformation.
+```bash
+python -m pytest tests/ -v
+```
 
-For this assessment, the robustness checks are maintained within the existing `main.py` file to preserve the required project structure.
+**Validation results:**
 
-In a larger production project, these automated tests would ideally be organised in a dedicated `tests/` directory and executed through a formal testing framework such as pytest.
+| Test Module | Tests Passed |
+|---|---:|
+| `test_preprocessing.py` | 14/14 |
+| `test_feature_engineering.py` | 10/10 |
+| **Total** | **24/24** |
+
+All 24 automated tests passed successfully.
+
+### 8.11 Feature Engineering and Feature Selection
+
+A feature engineering module was developed to create additional predictive feature candidates based on domain knowledge and EDA findings.
+
+Four engineered features were implemented:
+
+| Engineered Feature | Purpose |
+|---|---|
+| `spend_discount_interaction` | Captures the interaction between monthly spending and discount usage. |
+| `monthly_spend_squared` | Explores potential non-linear relationships between spending and churn. |
+| `premium_spend_interaction` | Captures differences in the spending relationship for Premium members relative to Basic members. |
+| `vip_spend_interaction` | Captures differences in the spending relationship for VIP members relative to Basic members. |
+
+These features are exploratory candidates. Their incremental predictive usefulness and redundancy should be evaluated during subsequent model experimentation.
+
+Mutual Information was also implemented as a feature selection technique to rank numerical training features according to their statistical dependence with the churn target.
+
+Feature selection is performed using training data only to prevent target leakage.
+
+The engineered features and Mutual Information rankings will be evaluated further during model development before finalising the feature set.
 
 ## 9. Tools and Libraries
 
@@ -343,8 +366,23 @@ The project uses Python and the following libraries:
 - **Statsmodels:** Multiple hypothesis testing and p-value adjustment.
 - **Scikit-learn:** Data preprocessing, imputation, feature scaling, categorical encoding and train-test splitting.
 - **Jupyter Notebook:** Interactive analysis and documentation.
+- **pytest:** Automated testing of preprocessing and feature engineering functionality.
 
-## 10. Conclusion
+## 10. Environment Setup and Execution
+
+Install the required dependencies:
+
+    pip install -r requirements.txt
+
+Run the preprocessing workflow from the project root directory:
+
+    python main.py
+
+Run the automated test suite:
+
+    python -m pytest tests/ -v
+
+## 11. Conclusion
 
 The exploratory analysis identified several potentially meaningful relationships between customer characteristics and churn, particularly in monthly spending, customer satisfaction, complaints and membership tier.
 
